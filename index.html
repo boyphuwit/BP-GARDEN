@@ -479,7 +479,7 @@ document.querySelectorAll("[data-tadj]").forEach(b=>b.onclick=()=>{const d=Numbe
 document.getElementById("reset").onclick=()=>{state={};custom=[{name:"",amt:0}];labor=0;disc=0;km=0;visits=1;laborEl.value="";discEl.value="";renderCustom();syncRows();setDiscType("pct")};
 
 /* ---------- ใบเสนอราคา ---------- */
-const SHOP={name:"BP Garden",line1:"ไม้ล้อมคัดทรง · กระถาง · ดินปลูก · บริการดูแลสวน",line2:"ตลาดคำเที่ยง จ.เชียงใหม่ · LINE @bpgarden",slogan:"ครบ จบ ในที่เดียว"};
+const SHOP={name:"BP Garden",line1:"ไม้ล้อมคัดทรง · กระถาง · ดินปลูก · บริการดูแลสวน",line2:"ตลาดคำเที่ยง จ.เชียงใหม่ · LINE @bpgarden · Tel 082-591-4668",slogan:"ครบ จบ ในที่เดียว"};
 const Q={no:"",date:new Date()};
 const qEls={};["qNoIn","qName","qPhone","qPlace","qDays","qNote","qShopPhone"].forEach(id=>qEls[id]=document.getElementById(id));
 try{const p=localStorage.getItem("bp_shop_phone");if(p)qEls.qShopPhone.value=p}catch(e){}
