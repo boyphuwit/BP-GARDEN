@@ -140,7 +140,10 @@ section.svc{background:var(--surface);border:1px solid var(--line);border-radius
 .mini{border:1px solid var(--line);background:transparent;color:var(--ink);font:500 12px var(--body);padding:5px 10px;border-radius:999px;cursor:pointer}
 .mini:hover{border-color:var(--moss)}
 .mini.armed{border-color:var(--ochre);color:var(--ochre)}
-.file-btn{display:inline-flex;align-items:center}
+.file-btn{display:inline-flex;align-items:center;cursor:pointer}
+.pay-head{font-weight:600;color:var(--moss);padding-top:6px;border-top:1px solid var(--line);display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+.qr-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.qr-thumb{width:72px;height:72px;object-fit:contain;border:1px solid var(--line);border-radius:8px;background:#fff}
 .sheet-set{border:1px solid var(--line);border-radius:12px;padding:10px 14px;display:grid;gap:10px}
 .sheet-set[open]{padding-bottom:14px}
 .sheet-set summary{cursor:pointer;font-weight:600;color:var(--moss)}
@@ -315,6 +318,15 @@ button:disabled{opacity:.45;cursor:default}
       <label>ยืนราคา (วัน)<input class="txt" id="qDays" type="number" min="1" value="15"></label>
       <label class="full">เบอร์ติดต่อร้าน<input class="txt" id="qShopPhone" inputmode="tel" placeholder="แสดงใต้ชื่อร้าน"></label>
       <label class="full">หมายเหตุ<textarea class="txt area" id="qNote" rows="2" placeholder="เช่น ลูกค้าเตรียมน้ำและไฟฟ้าที่หน้างาน"></textarea></label>
+      <div class="full pay-head">ข้อมูลการชำระเงิน <span class="hint">จำไว้ในเครื่องนี้ ใช้กับทุกใบ</span></div>
+      <label>ธนาคาร<input class="txt" id="qBank" autocomplete="off" placeholder="เช่น ธนาคารกสิกรไทย"></label>
+      <label>เลขที่บัญชี<input class="txt" id="qAccNo" inputmode="numeric" autocomplete="off" placeholder="xxx-x-xxxxx-x"></label>
+      <label class="full">ชื่อบัญชี<input class="txt" id="qAccName" autocomplete="off" placeholder="ชื่อ-นามสกุล ตามบัญชี"></label>
+      <div class="full qr-row">
+        <img id="qrThumb" class="qr-thumb" alt="QR ชำระเงิน" hidden>
+        <label class="ghost file-btn">อัปโหลดรูป QR ชำระเงิน<input type="file" id="qQr" accept="image/*" hidden></label>
+        <button type="button" class="ghost" id="qQrDel" hidden>ลบ QR</button>
+      </div>
     </div>
     <div class="actions"><button type="button" class="primary save-db" id="qSave">บันทึกข้อมูล</button></div>
     <div class="actions" id="saveBtns"><button type="button" class="primary" id="qPng">บันทึกเป็นรูป (PNG)</button><button type="button" class="ghost" id="qPdf">บันทึกเป็น PDF</button><button type="button" class="ghost" id="qPrint">พิมพ์</button></div>
@@ -774,11 +786,18 @@ function layoutQuote(ctx,draw,H){
   T(tr("หมายเหตุ / เงื่อนไขการให้บริการ","Notes / Terms of service"),QM,y,`600 20px ${FD}`,PC.ink);y+=32;
   T(tr("Garden Care Service – บริการดูแลและบำรุงรักษาสวน","Garden Care Service – Garden care and maintenance"),QM,y,`600 18px ${FB}`,PC.moss);y+=32;
   terms.forEach(n=>{ctx.font=`400 18px ${FB}`;wrapText(ctx,n,R-QM-30).forEach((l,j)=>{if(!j)T("•",QM+4,y,`400 18px ${FB}`,PC.muted);T(l,QM+26,y,`400 18px ${FB}`,PC.ink);y+=28})});
-  y+=10;rect(QM,y,R-QM,96,PC.soft);
-  T(tr("การชำระเงิน","Payment"),QM+24,y+40,`600 18px ${FB}`,PC.muted);
-  T(tr("ธนาคารกรุงไทย   เลขที่บัญชี 375-3-12806-6","Krungthai Bank   Account no. 375-3-12806-6"),QM+170,y+40,`600 20px ${FB}`,PC.ink);
-  T(tr("ชื่อบัญชี นายภูวิศ อนันทุ์รุ่งเรือง","Account name: นายภูวิศ อนันทุ์รุ่งเรือง"),QM+170,y+74,`500 19px ${FB}`,PC.ink);
-  y+=96;
+  const hasQr=!!(PAY.qr&&qrImg.complete&&qrImg.naturalWidth),bank=(E&&PAY.bank==="ธนาคารกรุงไทย")?"Krungthai Bank":(PAY.bank||"").trim();
+  if(bank||PAY.accNo||PAY.accName||hasQr){
+    const ph=hasQr?200:96;y+=10;rect(QM,y,R-QM,ph,PC.soft);
+    T(tr("การชำระเงิน","Payment"),QM+24,y+40,`600 18px ${FB}`,PC.muted);
+    const l1=[bank,PAY.accNo?tr("เลขที่บัญชี ","Account no. ")+PAY.accNo:""].filter(Boolean).join("   ");
+    if(l1)T(l1,QM+170,y+40,`600 20px ${FB}`,PC.ink);
+    if(PAY.accName)T(tr("ชื่อบัญชี ","Account name: ")+PAY.accName,QM+170,y+74,`500 19px ${FB}`,PC.ink);
+    if(hasQr){const qs=170,sc=Math.min(qs/qrImg.naturalWidth,qs/qrImg.naturalHeight),qw=qrImg.naturalWidth*sc,qh=qrImg.naturalHeight*sc;
+      if(draw){ctx.fillStyle="#ffffff";ctx.fillRect(R-24-qs-8,y+15-8+0,qs+16,qs+16);ctx.drawImage(qrImg,R-24-qs+(qs-qw)/2,y+15+(qs-qh)/2,qw,qh)}
+      T(tr("สแกน QR เพื่อชำระเงิน","Scan the QR code to pay"),QM+170,y+112,`500 18px ${FB}`,PC.moss)}
+    y+=ph;
+  }
   const end=y;
 
   if(draw){
@@ -879,6 +898,31 @@ loginForm.addEventListener("submit",async e=>{
 });
 document.getElementById("lgShow").onclick=e=>{const show=lgPass.type==="password";lgPass.type=show?"text":"password";e.currentTarget.textContent=show?tr("ซ่อน","Hide"):tr("แสดง","Show");e.currentTarget.setAttribute("aria-label",show?tr("ซ่อนรหัสผ่าน","Hide password"):tr("แสดงรหัสผ่าน","Show password"))};
 document.getElementById("logout").onclick=()=>{try{localStorage.removeItem(AUTH_KEY);sessionStorage.removeItem(AUTH_KEY)}catch(e){}lgUser.value="";lockApp(true)};
+
+/* ---------- ข้อมูลการชำระเงิน + QR ---------- */
+const PAY_DEF={bank:"ธนาคารกรุงไทย",accNo:"375-3-12806-6",accName:"นายภูวิศ อนันทุ์รุ่งเรือง",qr:""};
+let PAY={...PAY_DEF};try{Object.assign(PAY,JSON.parse(localStorage.getItem("bp_pay")||"{}"))}catch(e){}
+const qrImg=new Image();qrImg.onload=()=>{if(!modal.hidden)renderQuoteCanvas()};
+function savePay(){try{localStorage.setItem("bp_pay",JSON.stringify(PAY));return true}catch(e){return false}}
+function syncPayUI(){
+  document.getElementById("qBank").value=PAY.bank||"";document.getElementById("qAccNo").value=PAY.accNo||"";document.getElementById("qAccName").value=PAY.accName||"";
+  const th=document.getElementById("qrThumb");th.hidden=!PAY.qr;if(PAY.qr){th.src=PAY.qr;if(qrImg.src!==PAY.qr)qrImg.src=PAY.qr}
+  document.getElementById("qQrDel").hidden=!PAY.qr;
+}
+[["qBank","bank"],["qAccNo","accNo"],["qAccName","accName"]].forEach(([id,k])=>document.getElementById(id).addEventListener("input",e=>{PAY[k]=e.target.value;savePay();clearTimeout(qTimer);qTimer=setTimeout(renderQuoteCanvas,150)}));
+document.getElementById("qQr").onchange=e=>{
+  const f=e.target.files&&e.target.files[0];e.target.value="";if(!f)return;
+  if(!/^image\//.test(f.type)){setStatus(tr("เลือกไฟล์รูปภาพ","Choose an image file"));return}
+  const rd=new FileReader();rd.onload=()=>{const im=new Image();im.onload=()=>{
+    const m=Math.min(1,600/Math.max(im.width,im.height)),c=document.createElement("canvas");c.width=Math.round(im.width*m);c.height=Math.round(im.height*m);
+    const x=c.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,c.width,c.height);x.drawImage(im,0,0,c.width,c.height);
+    const prev=PAY.qr;PAY.qr=c.toDataURL("image/png");
+    if(!savePay()){PAY.qr=c.toDataURL("image/jpeg",0.9);if(!savePay()){PAY.qr=prev;setStatus(tr("รูปใหญ่เกินไป ลองครอปเหลือเฉพาะ QR","The image is too large. Crop it to just the QR code."));return}}
+    syncPayUI();setStatus(tr("เพิ่ม QR แล้ว","QR added"));renderQuoteCanvas();
+  };im.onerror=()=>setStatus(tr("เปิดรูปนี้ไม่ได้","Could not open this image"));im.src=rd.result};rd.readAsDataURL(f);
+};
+document.getElementById("qQrDel").onclick=()=>{PAY.qr="";savePay();qrImg.removeAttribute("src");syncPayUI();renderQuoteCanvas()};
+syncPayUI();
 
 /* ---------- ฐานข้อมูลลูกค้าและใบเสนอราคา ---------- */
 const dbModal=document.getElementById("dbModal");
@@ -1120,7 +1164,7 @@ const STATIC_EN={
  "บนมือถือ กดค้างที่รูปใบเสนอราคาด้านล่างเพื่อบันทึกหรือแชร์ส่ง LINE ได้ด้วย":"On mobile, you can also press and hold the image below to save it or share it on LINE.",
  "ตัวอย่างใบเสนอราคา":"Quotation preview","ลูกค้า/ใบเสนอราคา":"Customers & quotes","บันทึกข้อมูล":"Save record",
  "ลูกค้าและใบเสนอราคา":"Customers and quotations","ลูกค้า":"Customers","มุมมอง":"View","ค้นหาชื่อ เบอร์ หรือเลขที่":"Search name, phone or number","ค้นหา":"Search",
- "ส่งออก CSV":"Export CSV","เชื่อม Google Sheets":"Connect Google Sheets","รหัสลับ (TOKEN)":"Secret key (TOKEN)","เชื่อมต่อ":"Connect","ส่งข้อมูลเดิมในเครื่องขึ้น Sheets":"Upload this device's data to Sheets","ยกเลิกการเชื่อม":"Disconnect","สำรองข้อมูล (JSON)":"Back up (JSON)","นำเข้าข้อมูล":"Import","ส่วนลดและราคาเหมาจ่าย":"Discount and lump-sum price","ลดเป็น % จากยอดค่าบริการ":"Discount as % of the service total",
+ "ส่งออก CSV":"Export CSV","ข้อมูลการชำระเงิน":"Payment details","จำไว้ในเครื่องนี้ ใช้กับทุกใบ":"Saved on this device for every quotation","ธนาคาร":"Bank","เช่น ธนาคารกสิกรไทย":"e.g. Kasikornbank","เลขที่บัญชี":"Account no.","ชื่อบัญชี":"Account name","ชื่อ-นามสกุล ตามบัญชี":"Name as shown on the account","อัปโหลดรูป QR ชำระเงิน":"Upload payment QR image","ลบ QR":"Remove QR","QR ชำระเงิน":"Payment QR","เชื่อม Google Sheets":"Connect Google Sheets","รหัสลับ (TOKEN)":"Secret key (TOKEN)","เชื่อมต่อ":"Connect","ส่งข้อมูลเดิมในเครื่องขึ้น Sheets":"Upload this device's data to Sheets","ยกเลิกการเชื่อม":"Disconnect","สำรองข้อมูล (JSON)":"Back up (JSON)","นำเข้าข้อมูล":"Import","ส่วนลดและราคาเหมาจ่าย":"Discount and lump-sum price","ลดเป็น % จากยอดค่าบริการ":"Discount as % of the service total",
  "ปัดเศษเป็นราคาเหมาจ่าย":"Round to a lump-sum price","ปัดยอดสุทธิลงให้เป็นเลขกลม":"Round the net total down to a round number","ปัดเศษ":"Rounding","ไม่ปัด":"None",
  "ราคาแต่ละรายการรวมค่าแรงแล้ว · ลำดับการคิด: ค่าบริการ (A–D, F) − ส่วนลด + ค่าเดินทาง (E) − ปัดเศษ = ราคาเหมาจ่าย":"Item prices already include labour · Calculation: services (A–D, F) − discount + travel (E) − rounding = lump-sum price",
  "ต้นทุนและกำไร":"Cost and profit","ใช้ภายในร้าน ไม่แสดงในใบเสนอราคา":"Internal only, not shown on the quotation","คนงาน (คน)":"Workers",
